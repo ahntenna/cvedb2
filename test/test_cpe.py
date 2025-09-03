@@ -4,7 +4,7 @@ from unittest import TestCase
 
 from rstr import xeger
 
-from cvedb.cpe import (
+from cvedb2.cpe import (
     AV_STRING_REGEX, CPE, FormattedStringParser, LANGTAG_REGEX, Language, Logical, parse_formatted_string, Part
 )
 

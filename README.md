@@ -1,8 +1,10 @@
-# CVEdb
+# CVEdb2
 
-[![PyPI version](https://badge.fury.io/py/cvedb.svg)](https://badge.fury.io/py/cvedb)
-[![Tests](https://github.com/trailofbits/cvedb/workflows/tests/badge.svg)](https://github.com/trailofbits/cvedb/actions)
-[![Slack Status](https://slack.empirehacking.nyc/badge.svg)](https://slack.empirehacking.nyc)
+[![PyPI version](https://badge.fury.io/py/cvedb2.svg)](https://badge.fury.io/py/cvedb2)
+[![Tests](https://github.com/ahntenna/cvedb2/workflows/tests/badge.svg)](https://github.com/ahntenna/cvedb2/actions)
+
+## This project is forked from https://github.com/trailofbits/cvedb
+# ```*** Support NVD CVE version 2.0 ***```
 
 CVEdb is yet another Python CVE database library and utility. There are lots already available. Why create another?
 Most existing libraries rely on a third party API like [cve.circl.lu](https://cve.circl.lu/), which can and do
@@ -23,19 +25,19 @@ CVEdb Anti-Features:
 ## Installation
 
 ```console
-$ pip3 install cvedb
+$ pip3 install cvedb2
 ```
 
 ## Command Line Usage
 
 ```console
-$ cvedb --help
+$ cvedb2 --help
 ```
 
 ## Python Examples
 
 ```python
-from cvedb.db import CVEdb
+from cvedb2.db import CVEdb
 
 with CVEdb.open() as db:
     for cve in db.data():

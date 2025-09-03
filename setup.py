@@ -8,32 +8,32 @@ with open(README_PATH, "r") as readme:
     README = readme.read()
 
 setup(
-    name="cvedb",
+    name="cvedb2",
     description="Yet another CVE database",
     long_description=README,
     long_description_content_type="text/markdown",
     license="LGPL-3.0-or-later",
-    url="https://github.com/trailofbits/cvedb",
-    author="Trail of Bits",
-    version="0.0.5",
+    url="https://github.com/ahntenna/cvedb2",
+    author="ahntenna",
+    version="1.0.0",
     packages=find_packages(exclude=["test"]),
     python_requires=">=3.6",
     install_requires=[
-        "cvss>=2.2",
+        "cvss>=3.6",
         # dataclasses were added in Python 3.7, so use this backport for earlier versions of Python
         "dataclasses;python_version<'3.7'",
         "python-dateutil>=2.8.1",
-        "tqdm>=4.48.0"
+        "tqdm==4.66.3"
     ],
     package_data={
-        "cvedb": ["data/*.json.gz", "data/*.meta"]
+        "cvedb2": ["data/*.json.gz", "data/*.meta"]
     },
     extras_require={
         "dev": ["flake8", "pytest", "rstr~=2.2.6", "twine"]
     },
     entry_points={
         "console_scripts": [
-            "cvedb = cvedb.__main__:main"
+            "cvedb2 = cvedb2.__main__:main"
         ]
     },
     classifiers=[

@@ -2,8 +2,8 @@ from datetime import datetime
 from typing import Optional, Iterator
 from unittest import TestCase
 
-from cvedb.cve import CVE
-from cvedb.feed import Feed, FEEDS, Data, DataSource
+from cvedb2.cve import CVE
+from cvedb2.feed import Feed, FEEDS, Data, DataSource
 
 
 class TestFeed(TestCase):
