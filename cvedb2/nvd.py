@@ -125,16 +125,11 @@ class JsonDataSource(DataSource):
 
     @staticmethod
     def parse_configurations(config_list: List[Dict]) -> Configurations:
-        # if len(config_list) >= 1:
-        #     config_dict = config_list[0]
-        # else:
-        #     return Configurations(())
         merged: Configurations = Configurations(())
         for config in config_list:
             if config:
                 merged += Configurations(JsonDataSource._parse_config_node(node) for node in config["nodes"])
         return merged
-        # return Configurations(JsonDataSource._parse_config_node(node) for node in config_dict["nodes"])
 
     @staticmethod
     def parse_cve(cve_obj: Dict[str, Any]) -> CVE:
@@ -143,7 +138,8 @@ class JsonDataSource(DataSource):
         references = tuple(
             Reference(
                 url=ref.get("url", None),
-                name=ref.get("url", None)
+                source=ref.get("source", None),
+                tags=json.dumps(ref.get("tags", None))
             )
             for ref in cve_obj["cve"].get("references", [])
         )
@@ -166,8 +162,6 @@ class JsonDataSource(DataSource):
                     source = metric.get("source", "")
                     if "nvd" in source:
                         impact = CVSS4(metric["cvssData"]["vectorString"])
-            else:
-                impact = None
         elif "cvssMetricV31" in cve_obj["cve"]["metrics"]:
             if len(cve_obj["cve"]["metrics"]["cvssMetricV31"]) == 1:
                 impact = CVSS3(cve_obj["cve"]["metrics"]["cvssMetricV31"][0]["cvssData"]["vectorString"])
@@ -176,8 +170,6 @@ class JsonDataSource(DataSource):
                     source = metric.get("source", "")
                     if "nvd" in source:
                         impact = CVSS3(metric["cvssData"]["vectorString"])
-            else:
-                impact = None
         elif "cvssMetricV30" in cve_obj["cve"]["metrics"]:
             if len(cve_obj["cve"]["metrics"]["cvssMetricV30"]) == 1:
                 impact = CVSS3(cve_obj["cve"]["metrics"]["cvssMetricV30"][0]["cvssData"]["vectorString"])
@@ -186,8 +178,6 @@ class JsonDataSource(DataSource):
                     source = metric.get("source", "")
                     if "nvd" in source:
                         impact = CVSS3(metric["cvssData"]["vectorString"])
-            else:
-                impact = None
         elif "cvssMetricV2" in cve_obj["cve"]["metrics"]:
             if len(cve_obj["cve"]["metrics"]["cvssMetricV2"]) == 1:
                 impact = CVSS2(cve_obj["cve"]["metrics"]["cvssMetricV2"][0]["cvssData"]["vectorString"])
@@ -196,10 +186,7 @@ class JsonDataSource(DataSource):
                     source = metric.get("source", "")
                     if "nvd" in source:
                         impact = CVSS2(metric["cvssData"]["vectorString"])
-            else:
-                impact = None
-        else:
-            impact = None
+
         return CVE(
             cve_id=cve_id,
             published_date=published_date,

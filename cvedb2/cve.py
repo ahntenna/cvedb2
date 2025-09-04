@@ -6,7 +6,7 @@ from enum import IntEnum
 from typing import Iterable, Iterator, Optional, overload, TextIO, Tuple, Union
 import sys
 
-from cvss import CVSS2, CVSS3
+from cvss import CVSS2, CVSS3, CVSS4
 
 from .cpe import CPE, Testable
 
@@ -30,7 +30,8 @@ class Severity(IntEnum):
 @dataclass(unsafe_hash=True, order=True, frozen=True)
 class Reference:
     url: Optional[str] = None
-    name: Optional[str] = None
+    source: Optional[str] = None
+    tags: Optional[str] = None
 
 
 @dataclass(unsafe_hash=True, order=True, frozen=True)
@@ -98,7 +99,7 @@ class CVE:
     cve_id: str
     published_date: datetime
     last_modified_date: datetime
-    impact: Optional[Union[CVSS3, CVSS2]] = None
+    impact: Optional[Union[CVSS4, CVSS3, CVSS2]] = None
     descriptions: Tuple[Description, ...] = ()
     references: Tuple[Reference, ...] = ()
     assigner: Optional[str] = None
@@ -119,7 +120,7 @@ class CVE:
                 return Severity.MEDIUM
             else:
                 return Severity.HIGH
-        elif isinstance(self.impact, CVSS3):
+        elif isinstance(self.impact, (CVSS3, CVSS4)):
             if self.impact.base_score == 0.0:
                 return Severity.NONE
             elif self.impact.base_score < 4.0:

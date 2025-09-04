@@ -135,16 +135,16 @@ def print_cve_tty(cve: CVE, stream: TextIO, term_columns: Optional[int] = None):
                    right_text=f" Impact: {color}\033[7m{impact_text}\033[0m       ")
     _print_box_row(stream, actual_columns, "─" * (actual_columns - 2), left_edge="╟", right_edge="╢")
     _print_box_row(stream, columns, cve.description(), word_wrap=True, line_pre="\033[3m\033[1m", line_post="\033[0m")
-    if cve.references:
-        _print_box_row(stream, actual_columns, "─" * (actual_columns - 2), left_edge="╟", right_edge="╢")
-        _print_box_row(stream, columns, " \033[4mReferences\033[0m")
-        for ref in cve.references:
-            _print_box_row(stream, columns, f"{ref.name}", word_wrap=True, hang_indent="    ", prefix="  • ")
-            if ref.url != ref.name:
-                _print_box_row(stream, columns, f"{ref.url}", word_wrap=True, hang_indent="    ", prefix="    ",
-                               text_splitter=split_url, delimiter="")
-            # TODO: Use this if/when `less -R` adds support for hyperlinks:
-            # _print_box_row(stream, columns, f"  • \033]8;;{ref.url}\033\\{ref.name}\033]8;;\033\\")
+    # if cve.references:
+    #     _print_box_row(stream, actual_columns, "─" * (actual_columns - 2), left_edge="╟", right_edge="╢")
+    #     _print_box_row(stream, columns, " \033[4mReferences\033[0m")
+    #     for ref in cve.references:
+    #         _print_box_row(stream, columns, f"{ref.name}", word_wrap=True, hang_indent="    ", prefix="  • ")
+    #         if ref.url != ref.name:
+    #             _print_box_row(stream, columns, f"{ref.url}", word_wrap=True, hang_indent="    ", prefix="    ",
+    #                            text_splitter=split_url, delimiter="")
+    #         # TODO: Use this if/when `less -R` adds support for hyperlinks:
+    #         # _print_box_row(stream, columns, f"  • \033]8;;{ref.url}\033\\{ref.name}\033]8;;\033\\")
     stream.write("╚")
     stream.write("═" * (actual_columns - 2))
     stream.write("╝")

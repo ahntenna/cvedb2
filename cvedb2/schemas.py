@@ -4,7 +4,7 @@ from sqlite3 import Connection
 import sys
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Type, TypeVar, Union
 
-from cvss import CVSS2, CVSS3, CVSSError
+from cvss import CVSS2, CVSS3, CVSS4, CVSSError
 
 from .feed import Data
 from .cve import Configurations, CVE, Description, Reference
@@ -66,8 +66,9 @@ DESCRIPTIONS_TABLE_CREATE = (
 REFERENCES_TABLE_CREATE = (
     "CREATE TABLE IF NOT EXISTS refs("
     "cve REFERENCES cves (id) NOT NULL, "
-    "name VARCHAR NULL, "
-    "url VARCHAR NULL"
+    "source VARCHAR NULL, "
+    "url VARCHAR NULL, "
+    "tags VARCHAR NULL"
     ")"
 )
 
@@ -274,12 +275,15 @@ class SchemaV0(Schema):
                 impact = None
             else:
                 try:
-                    impact = CVSS3(impact_vector)
+                    impact = CVSS4(impact_vector)
                 except CVSSError:
                     try:
-                        impact = CVSS2(impact_vector)
+                        impact = CVSS3(impact_vector)
                     except CVSSError:
-                        impact = None
+                        try:
+                            impact = CVSS2(impact_vector)
+                        except CVSSError:
+                            impact = None
             d = self.connection.cursor()
             d.execute(f"SELECT lang, description FROM descriptions WHERE cve = ?", (cve_id,))
             descriptions = tuple(Description(lang, desc) for lang, desc in d.fetchall())
@@ -450,9 +454,9 @@ class SchemaV1(SchemaV0):
         for ref in cve.references:
             self.connection.execute(
                 "INSERT OR REPLACE INTO refs "
-                "(cve, name, url) "
-                "VALUES (?, ?, ?)", (
-                    cve.cve_id, ref.name, ref.url
+                "(cve, source, url, tags) "
+                "VALUES (?, ?, ?, ?)", (
+                    cve.cve_id, ref.source, ref.url, ref.tags
                 )
             )
         c = self.connection.cursor()
@@ -522,8 +526,8 @@ class SchemaV1(SchemaV0):
 
         for cve in super().cve_iter(rows, extra_row_handler=handle_configurations):
             d = self.connection.cursor()
-            d.execute(f"SELECT url, name FROM refs WHERE cve = ?", (cve.cve_id,))
-            references = tuple(Reference(url, name) for url, name in d.fetchall())
+            d.execute(f"SELECT url, source, tags FROM refs WHERE cve = ?", (cve.cve_id,))
+            references = tuple(Reference(url, source, tags) for url, source, tags in d.fetchall())
             if references:
                 yield CVE(
                     cve_id=cve.cve_id,

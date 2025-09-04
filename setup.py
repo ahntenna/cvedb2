@@ -15,7 +15,7 @@ setup(
     license="LGPL-3.0-or-later",
     url="https://github.com/ahntenna/cvedb2",
     author="ahntenna",
-    version="1.0.0",
+    version="1.0.1",
     packages=find_packages(exclude=["test"]),
     python_requires=">=3.6",
     install_requires=[
