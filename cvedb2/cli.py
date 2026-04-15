@@ -170,8 +170,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         with CVEdb.open(args.database) as db:
             if query is None:
                 # just print all of the CVEs
-                # print_cves(db.data())     # too much ...
-                print(f'* [cvedb2] Version: {version()}')
+                print_cves(db.data())
             else:
                 sorts = []
                 for sort in args.sort:
