@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from .cve import CVE
 from .feed import Data, DataSource, Feed, FEEDS, MAX_DATA_AGE_SECONDS
-from .schemas import Schema
+from .schemas import Schema, CPES_TEMP_TABLE_CREATE, CPES_TEMP_DISTINCT_INSERT, CPES_TABLE_DROP, CPES_TEMP_RENAME, DESCRIPTIONS_INDEX_CREATE, CVE_ID_INDEX_CREATE, DESC_CVE_INDEX_CREATE, FEED_INDEX_CREATE, CPES_PROD_VER_INDEX_CREATE, CPES_VEND_PROD_INDEX_CREATE
 from .search import SearchQuery, Sort
 
 DEFAULT_DB_PATH = Path.home() / ".config" / "cvedb2" / "cvedb2.sqlite"
@@ -225,3 +225,41 @@ class CVEdb(Feed):
     @staticmethod
     def open(db_path: Union[str, Path] = DEFAULT_DB_PATH, parents: Optional[Iterable[Feed]] = None) -> CVEdbContext:
         return CVEdbContext(db_path, parents)
+
+
+class CVEdbPostExec:
+    def __init__(self, db_path: Union[str, Path] = DEFAULT_DB_PATH):
+        self.db_path: Path = Path(db_path)
+        self._connection: Optional[Connection] = None
+
+    def __enter__(self):
+        self._connection = connect(str(self.db_path))
+        self._connection.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._connection.__exit__(exc_type, exc_val, exc_tb)
+        self._connection = None
+
+    def create_index(self):
+        cur = self._connection.cursor()
+        cur.execute(DESCRIPTIONS_INDEX_CREATE)
+        cur.execute(CVE_ID_INDEX_CREATE)
+        cur.execute(DESC_CVE_INDEX_CREATE)
+        cur.execute(FEED_INDEX_CREATE)
+        cur.execute(CPES_PROD_VER_INDEX_CREATE)
+        cur.execute(CPES_VEND_PROD_INDEX_CREATE)
+        cur.close()
+
+    def distinct_cpes(self):
+        cur = self._connection.cursor()
+        cur.execute(CPES_TEMP_TABLE_CREATE)
+        cur.execute(CPES_TEMP_DISTINCT_INSERT)
+        cur.execute(CPES_TABLE_DROP)
+        cur.execute(CPES_TEMP_RENAME)
+        cur.close()
+
+    def vaccum(self):
+        cur = self._connection.cursor()
+        cur.execute("VACUUM;")
+        cur.close()

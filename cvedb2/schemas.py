@@ -98,6 +98,52 @@ CONFIGURATIONS_TABLE_CREATE = (
 )
 
 
+# for remove duplicated cpe datas.
+CPES_TEMP_TABLE_CREATE = (
+    "CREATE TABLE IF NOT EXISTS cpes_tmp AS "
+    "SELECT * FROM cpes WHERE 1=0;"
+)
+
+CPES_TEMP_DISTINCT_INSERT = (
+    "INSERT INTO cpes_tmp "
+    "SELECT DISTINCT * FROM cpes;"
+)
+
+CPES_TABLE_DROP = (
+    "DROP TABLE IF EXISTS cpes;"
+)
+
+CPES_TEMP_RENAME = (
+    "ALTER TABLE cpes_tmp RENAME TO cpes;"
+)
+
+
+# create index for performance.
+DESCRIPTIONS_INDEX_CREATE = (
+    "CREATE INDEX IF NOT EXISTS idx_descriptions_upper_text ON descriptions (UPPER(description));"
+)
+
+CVE_ID_INDEX_CREATE = (
+    "CREATE INDEX IF NOT EXISTS idx_cves_upper_id ON cves (UPPER(id));"
+)
+
+DESC_CVE_INDEX_CREATE = (
+    "CREATE INDEX IF NOT EXISTS idx_descriptions_cve_fk ON descriptions (cve);"
+)
+
+FEED_INDEX_CREATE = (
+    "CREATE INDEX IF NOT EXISTS idx_cves_feed ON cves (feed);"
+)
+
+CPES_PROD_VER_INDEX_CREATE = (
+    "CREATE INDEX IF NOT EXISTS idx_cpes_product_version ON cpes (product, version);"
+)
+
+CPES_VEND_PROD_INDEX_CREATE = (
+    "CREATE INDEX IF NOT EXISTS idx_cpes_vendor_product ON cpes (vendor, product);"
+)
+
+
 def register_schema(version: int):
     def decorator(cls):
         if version in SCHEMAS:
@@ -311,9 +357,15 @@ class SchemaV0(Schema):
                 query_text = query_text.upper()
                 description_query = f"UPPER({description_query})"
                 id_query = f"UPPER({id_query})"
+            if not query_text.startswith("CVE-"):
+                try:
+                    int(query_text[0])
+                    query_text = f"CVE-{query_text}"
+                except ValueError:
+                    raise ValueError(f"Invalid CVE ID: {query_text}")
             return Select("", "", where=SimpleQuery(
                 f"({description_query} LIKE ? OR {id_query} LIKE ?)"
-            ), params=[f"%{query_text}%", f"%{query_text}%"])
+            ), params=[f"{query_text}%", f"{query_text}%"])
         elif isinstance(query, BeforePublishedDateQuery):
             return Select("", "", where=SimpleQuery("c.published <= ?"),
                           params=[int(query.date.astimezone().timestamp())])

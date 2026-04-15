@@ -6,7 +6,7 @@ import sys
 from typing import List, Optional, Union
 
 from .cpe import Logical
-from .db import CVEdb, DEFAULT_DB_PATH
+from .db import CVEdb, CVEdbPostExec, DEFAULT_DB_PATH
 from .feed import Data
 from .printing import print_cves
 from .search import (
@@ -71,7 +71,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--data-version", "-dv", action="store_true", help="print the version of each of the CVE data "
                                                                            "feeds and exit")
 
+    parser.add_argument("--data-index", "-di", action="store_true", help=f"create index for data (default is {DEFAULT_DB_PATH!s})")
+    parser.add_argument("--dstnct-cpe", "-dc", action="store_true", help=f"distinct cpe (default is {DEFAULT_DB_PATH!s})")
+    parser.add_argument("--vaccum", "-va", action="store_true", help="do vaccum")
+
     args = parser.parse_args(argv[1:])
+    print(args)
 
     if args.update:
         with CVEdb.open(args.database) as db:
@@ -146,11 +151,28 @@ def main(argv: Optional[List[str]] = None) -> int:
     else:
         query = None
 
+    if args.data_index:
+        with CVEdbPostExec(args.database) as post:
+            post.create_index()
+            print('create index success.')
+            if args.vaccum:
+                post.vaccum()
+                print('vaccum sccuess.')
+
+    if args.dstnct_cpe:
+        with CVEdbPostExec(args.database) as post:
+            post.distinct_cpes()
+            print('distinct cpes success.')
+            if args.vaccum:
+                post.vaccum()
+                print('vaccum sccuess.')
+
     try:
         with CVEdb.open(args.database) as db:
             if query is None:
                 # just print all of the CVEs
-                print_cves(db.data())
+                # print_cves(db.data())     # too much ...
+                print(f'* [cvedb2] Version: {version()}')
             else:
                 sorts = []
                 for sort in args.sort:
