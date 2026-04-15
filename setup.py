@@ -15,7 +15,7 @@ setup(
     license="LGPL-3.0-or-later",
     url="https://github.com/ahntenna/cvedb2",
     author="ahntenna",
-    version="1.0.2",
+    version="1.0.3",
     packages=find_packages(exclude=["test"]),
     python_requires=">=3.6",
     install_requires=[
@@ -26,7 +26,7 @@ setup(
         "tqdm==4.66.3"
     ],
     package_data={
-        "cvedb2": ["data/*.json.gz", "data/*.meta"]
+        "cvedb2": []
     },
     extras_require={
         "dev": ["flake8", "pytest", "rstr~=2.2.6", "twine"]

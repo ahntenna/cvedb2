@@ -76,7 +76,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--vaccum", "-va", action="store_true", help="do vaccum")
 
     args = parser.parse_args(argv[1:])
-    print(args)
 
     if args.update:
         with CVEdb.open(args.database) as db:
