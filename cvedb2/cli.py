@@ -1,18 +1,20 @@
 import argparse
 from datetime import datetime
 from dateutil.parser import isoparse, ParserError
+from pathlib import Path
 import pkg_resources
 import sys
 from typing import List, Optional, Union
 
 from .cpe import Logical
 from .db import CVEdb, CVEdbPostExec, DEFAULT_DB_PATH
-from .feed import Data
+from .feed import Data, FEEDS
 from .printing import print_cves
 from .search import (
     AfterModifiedDateQuery, AfterPublishedDateQuery, AndQuery, BeforeModifiedDateQuery, BeforePublishedDateQuery,
     CPEQuery, Sort
 )
+from .report import take_snapshot, collect_details, write_csv, write_excel
 
 
 def version() -> str:
@@ -44,6 +46,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("SEARCH_TERM", type=str, nargs="*", help="search terms to query")
     parser.add_argument("--update", "-u", action="store_true", help="update the database to the latest version; this "
                                                                     "requires an Internet connection")
+    parser.add_argument("--update-report", "-ur", action="store_true",
+                        help="update the database and report newly added / modified CVEs to the console and to "
+                             "CSV/Excel files")
+    parser.add_argument("--output-dir", "-o", type=str, default=".",
+                        help="directory to save the update report files (used with --update-report; default is the "
+                             "current directory)")
+    parser.add_argument("--format", "-f", choices=("csv", "excel", "all"), default="all",
+                        help="update report file format (used with --update-report; default is all)")
+    parser.add_argument("--since-year", "-y", type=int, default=None,
+                        help="when updating, only check feeds for the given year and later (e.g., -y 2020; "
+                             "note that the 2002 feed contains all CVEs from 1999-2002)")
     parser.add_argument("--database", "-db", type=str, nargs="?", default=DEFAULT_DB_PATH,
                         help=f"alternative path to load/store the database (default is {DEFAULT_DB_PATH!s})")
     parser.add_argument("--sort", "-s", nargs="*", default=("cve",),
@@ -77,9 +90,44 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     args = parser.parse_args(argv[1:])
 
+    before_update = None
+    after_update = None
+    if args.update_report:
+        before_update = take_snapshot(Path(args.database))
+        print(f"before update count: {len(before_update):,}")
+
     if args.update:
-        with CVEdb.open(args.database) as db:
-            db.reload(force=True)
+        parents = None
+        if args.since_year is not None:
+            parents = [feed for name, feed in FEEDS.items() if name.isdigit() and int(name) >= args.since_year]
+            if not parents:
+                sys.stderr.write(f"No feeds found for year >= {args.since_year}\n")
+                return 1
+        with CVEdb.open(args.database, parents) as db:
+            db.data().reload(force=True)
+
+    if args.update_report and before_update is not None:
+        after_update = take_snapshot(Path(args.database))
+        print(f"after update count: {len(after_update):,}")
+
+        if after_update is not None:
+            new_keys = set(after_update) - set(before_update)
+            modified_keys = {key for key in set(after_update) & set(before_update) if after_update[key] != before_update[key]}
+
+            new_rows = collect_details(Path(args.database), new_keys)
+            modified_rows = collect_details(Path(args.database), modified_keys)
+
+            if new_rows or modified_rows:
+                Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+                stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                if args.format in ("csv", "all"):
+                    csv_path = Path(args.output_dir) / f"cvedb2_update_report_{stamp}.csv"
+                    write_csv(csv_path, new_rows, modified_rows)
+                    print(f"save csv: {csv_path.resolve()}")
+                if args.format in ("excel", "all"):
+                    xlsx_path = Path(args.output_dir) / f"cvedb2_update_report_{stamp}.xlsx"
+                    write_excel(xlsx_path, new_rows, modified_rows, Path(args.database), len(before_update), len(after_update))
+                    print(f"save excel: {xlsx_path.resolve()}")
 
     if args.version:
         if sys.stdout.isatty():
@@ -154,17 +202,16 @@ def main(argv: Optional[List[str]] = None) -> int:
         with CVEdbPostExec(args.database) as post:
             post.create_index()
             print('create index success.')
-            if args.vaccum:
-                post.vaccum()
-                print('vaccum sccuess.')
 
     if args.dstnct_cpe:
         with CVEdbPostExec(args.database) as post:
             post.distinct_cpes()
             print('distinct cpes success.')
-            if args.vaccum:
-                post.vaccum()
-                print('vaccum sccuess.')
+
+    if args.vaccum:
+        with CVEdbPostExec(args.database) as post:
+            post.vaccum()
+            print('vaccum sccuess.')
 
     try:
         with CVEdb.open(args.database) as db:
