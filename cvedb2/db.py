@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from .cve import CVE
 from .feed import Data, DataSource, Feed, FEEDS, MAX_DATA_AGE_SECONDS
-from .schemas import Schema, CPES_TEMP_TABLE_CREATE, CPES_TEMP_DISTINCT_INSERT, CPES_TABLE_DROP, CPES_TEMP_RENAME, DESCRIPTIONS_INDEX_CREATE, CVE_ID_INDEX_CREATE, DESC_CVE_INDEX_CREATE, FEED_INDEX_CREATE, CPES_PROD_VER_INDEX_CREATE, CPES_VEND_PROD_INDEX_CREATE
+from .schemas import Schema, INDEX_REFS, INDEX_CPES_PROD_VER, INDEX_CPES_VEND_PROD, INDEX_CONFIGURATIONS, INDEX_DESCRIPTIONS, INDEX_FEED
 from .search import SearchQuery, Sort
 
 DEFAULT_DB_PATH = Path.home() / ".config" / "cvedb2" / "cvedb2.sqlite"
@@ -238,28 +238,25 @@ class CVEdbPostExec:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._connection.__exit__(exc_type, exc_val, exc_tb)
-        self._connection = None
+        if self._connection:
+            try:
+                self._connection.__exit__(exc_type, exc_val, exc_tb)
+            finally:
+                self._connection.close()
+                self._connection = None
 
     def create_index(self):
         cur = self._connection.cursor()
-        cur.execute(DESCRIPTIONS_INDEX_CREATE)
-        cur.execute(CVE_ID_INDEX_CREATE)
-        cur.execute(DESC_CVE_INDEX_CREATE)
-        cur.execute(FEED_INDEX_CREATE)
-        cur.execute(CPES_PROD_VER_INDEX_CREATE)
-        cur.execute(CPES_VEND_PROD_INDEX_CREATE)
+        cur.execute(INDEX_REFS)
+        cur.execute(INDEX_CPES_PROD_VER)
+        cur.execute(INDEX_CPES_VEND_PROD)
+        cur.execute(INDEX_CONFIGURATIONS)
+        cur.execute(INDEX_DESCRIPTIONS)
+        cur.execute(INDEX_FEED)
+        cur.execute("ANALYZE;")
         cur.close()
 
-    def distinct_cpes(self):
-        cur = self._connection.cursor()
-        cur.execute(CPES_TEMP_TABLE_CREATE)
-        cur.execute(CPES_TEMP_DISTINCT_INSERT)
-        cur.execute(CPES_TABLE_DROP)
-        cur.execute(CPES_TEMP_RENAME)
-        cur.close()
-
-    def vaccum(self):
+    def vacuum(self):
         cur = self._connection.cursor()
         cur.execute("VACUUM;")
         cur.close()

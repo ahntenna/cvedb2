@@ -488,21 +488,60 @@ class VersionRange(Testable):
     def __hash__(self):
         return hash((self.wrapped, self.start, self.end, self.include_start, self.include_end))
 
+    @staticmethod
+    def _ver_key(v):
+        key = []
+        for part in re.split(r"[.\-_+:~]", str(v).strip()):
+            if part == "":
+                continue
+            m = re.match(r"^(\d+)(.*)$", part)
+            if part.isdigit():
+                key.append((0, int(part), ""))
+            elif m:
+                key.append((0, int(m.group(1)), m.group(2)))
+            else:
+                key.append((1, 0, part))
+        return key
+
+    @classmethod
+    def _ver_cmp(cls, a, b):
+        ka, kb = cls._ver_key(a), cls._ver_key(b)
+        n = max(len(ka), len(kb))
+        pad = (0, 0, "")
+        ka += [pad] * (n - len(ka))
+        kb += [pad] * (n - len(kb))
+        return -1 if ka < kb else (1 if ka > kb else 0)
+
     def match(self, cpe: "CPE") -> bool:
-        if isinstance(cpe.version, str):
-            if self.start is not None:
-                if self.include_start:
-                    if cpe.version < self.start:
-                        return False
-                elif cpe.version <= self.start:
+        if isinstance(cpe.version, str) and cpe.version not in ("*", "-"):
+            v = cpe.version.strip()
+            start = self.start.strip() if isinstance(self.start, str) else self.start
+            end = self.end.strip() if isinstance(self.end, str) else self.end
+            if start:
+                c = self._ver_cmp(v, start)
+                if (self.include_start and c < 0) or (not self.include_start and c <= 0):
                     return False
-            elif self.end is not None:
-                if self.include_end:
-                    if cpe.version > self.end:
-                        return False
-                elif cpe.version >= self.end:
+            if end:
+                c = self._ver_cmp(v, end)
+                if (self.include_end and c > 0) or (not self.include_end and c >= 0):
                     return False
         return self.wrapped.match(cpe, match_version=False)
+
+    # def match(self, cpe: "CPE") -> bool:
+    #     if isinstance(cpe.version, str):
+    #         if self.start is not None:
+    #             if self.include_start:
+    #                 if cpe.version < self.start:
+    #                     return False
+    #             elif cpe.version <= self.start:
+    #                 return False
+    #         if self.end is not None:
+    #             if self.include_end:
+    #                 if cpe.version > self.end:
+    #                     return False
+    #             elif cpe.version >= self.end:
+    #                 return False
+    #     return self.wrapped.match(cpe, match_version=False)
 
     def dump_content(self, stream: TextIO):
         stream.write(["E", "I"][self.include_start])

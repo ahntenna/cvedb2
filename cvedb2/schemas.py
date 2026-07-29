@@ -84,7 +84,9 @@ CPES_TABLE_CREATE = (
     "language VARCHAR NULL, "
     "sw_edition VARCHAR NULL, "
     "target_sw VARCHAR NULL, "
-    "other VARCHAR NULL"
+    "other VARCHAR NULL, "
+    "UNIQUE (part, vendor, product, version, update_str, "
+    "edition, language, sw_edition, target_sw, other)"
     ")"
 )
 
@@ -97,50 +99,29 @@ CONFIGURATIONS_TABLE_CREATE = (
     ")"
 )
 
-
-# for remove duplicated cpe datas.
-CPES_TEMP_TABLE_CREATE = (
-    "CREATE TABLE IF NOT EXISTS cpes_tmp AS "
-    "SELECT * FROM cpes WHERE 1=0;"
-)
-
-CPES_TEMP_DISTINCT_INSERT = (
-    "INSERT INTO cpes_tmp "
-    "SELECT DISTINCT * FROM cpes;"
-)
-
-CPES_TABLE_DROP = (
-    "DROP TABLE IF EXISTS cpes;"
-)
-
-CPES_TEMP_RENAME = (
-    "ALTER TABLE cpes_tmp RENAME TO cpes;"
-)
-
-
 # create index for performance.
-DESCRIPTIONS_INDEX_CREATE = (
-    "CREATE INDEX IF NOT EXISTS idx_descriptions_upper_text ON descriptions (UPPER(description));"
+INDEX_REFS = (
+    "CREATE INDEX IF NOT EXISTS idx_refs_cve ON refs (cve);"
 )
 
-CVE_ID_INDEX_CREATE = (
-    "CREATE INDEX IF NOT EXISTS idx_cves_upper_id ON cves (UPPER(id));"
-)
-
-DESC_CVE_INDEX_CREATE = (
-    "CREATE INDEX IF NOT EXISTS idx_descriptions_cve_fk ON descriptions (cve);"
-)
-
-FEED_INDEX_CREATE = (
-    "CREATE INDEX IF NOT EXISTS idx_cves_feed ON cves (feed);"
-)
-
-CPES_PROD_VER_INDEX_CREATE = (
+INDEX_CPES_PROD_VER = (
     "CREATE INDEX IF NOT EXISTS idx_cpes_product_version ON cpes (product, version);"
 )
 
-CPES_VEND_PROD_INDEX_CREATE = (
+INDEX_CPES_VEND_PROD = (
     "CREATE INDEX IF NOT EXISTS idx_cpes_vendor_product ON cpes (vendor, product);"
+)
+
+INDEX_CONFIGURATIONS = (
+    "CREATE INDEX IF NOT EXISTS idx_configurations_cve ON configurations (cve);"
+)
+
+INDEX_DESCRIPTIONS = (
+    "CREATE INDEX IF NOT EXISTS idx_descriptions_cve_fk ON descriptions (cve);"
+)
+
+INDEX_FEED = (
+    "CREATE INDEX IF NOT EXISTS idx_cves_feed ON cves (feed);"
 )
 
 
@@ -516,24 +497,30 @@ class SchemaV1(SchemaV0):
                 "other")
         col_names = ", ".join(cols)
         for cpe in cve.configurations.vulnerable_cpes():
+            values = [
+                str(v) for v in (
+                    cpe.part.value, cpe.vendor, cpe.product, cpe.version, cpe.update,
+                    cpe.edition, cpe.lang, cpe.sw_edition, cpe.target_sw, cpe.other,
+                )
+            ]
+
             c.execute(
-                "INSERT OR IGNORE INTO cpes ("
-                f"{col_names}"
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ",
-                [str(c) for c in
-                    (cpe.part.value, cpe.vendor, cpe.product, cpe.version, cpe.update, cpe.edition, cpe.lang,
-                     cpe.sw_edition, cpe.target_sw, cpe.other)]
+                f"INSERT OR IGNORE INTO cpes ({col_names}) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                values,
             )
-            if c.lastrowid is None:
-                # the CPE already existed
-                args = " AND ".join(f"{col} = ?" for col in cols)
-                c.execute(f"SELECT rowid FROM cpes WHERE {args}", (cpe.part.value, cpe.vendor, cpe.product, cpe.version,
-                                                                   cpe.update, cpe.edition, cpe.lang,
-                                                                   cpe.sw_edition, cpe.target_sw, cpe.other))
-                cpe_row = c.fetchone()[0]
-            else:
+
+            if c.rowcount == 1:
                 cpe_row = c.lastrowid
-            c.execute("INSERT OR REPLACE INTO configurations (cpe, cve) VALUES (?, ?)", (cpe_row, cve.cve_id))
+            else:
+                where = " AND ".join(f"{col} = ?" for col in cols)
+                c.execute(f"SELECT rowid FROM cpes WHERE {where}", values)
+                cpe_row = c.fetchone()[0]
+
+            c.execute(
+                "INSERT OR REPLACE INTO configurations (cpe, cve) VALUES (?, ?)",
+                (cpe_row, cve.cve_id),
+            )
 
     @classmethod
     def to_query(cls, query: SearchQuery) -> Optional[Select]:
@@ -562,8 +549,15 @@ class SchemaV1(SchemaV0):
                 ):
                     value = getattr(query, attr)
                     if isinstance(value, str):
-                        select.where = And.create(select.where, SimpleQuery(f"p.{attr} = ?"))
-                        select.params.append(value)
+                        if attr == "version":
+                            select.where = And.create(
+                                select.where,
+                                SimpleQuery("(p.version = ? OR p.version = '*' OR p.version = '-')")
+                            )
+                            select.params.append(value)
+                        else:
+                            select.where = And.create(select.where, SimpleQuery(f"p.{attr} = ?"))
+                            select.params.append(value)
 
     def cve_iter(
             self,

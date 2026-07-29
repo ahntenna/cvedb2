@@ -85,8 +85,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                                                                            "feeds and exit")
 
     parser.add_argument("--data-index", "-di", action="store_true", help=f"create index for data (default is {DEFAULT_DB_PATH!s})")
-    parser.add_argument("--dstnct-cpe", "-dc", action="store_true", help=f"distinct cpe (default is {DEFAULT_DB_PATH!s})")
-    parser.add_argument("--vaccum", "-va", action="store_true", help="do vaccum")
+    parser.add_argument("--vacuum", "-va", action="store_true", help="do vacuum")
 
     args = parser.parse_args(argv[1:])
 
@@ -202,16 +201,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         with CVEdbPostExec(args.database) as post:
             post.create_index()
             print('create index success.')
+        if not args.vacuum:
+            return 0
 
-    if args.dstnct_cpe:
+    if args.vacuum:
         with CVEdbPostExec(args.database) as post:
-            post.distinct_cpes()
-            print('distinct cpes success.')
-
-    if args.vaccum:
-        with CVEdbPostExec(args.database) as post:
-            post.vaccum()
-            print('vaccum sccuess.')
+            post.vacuum()
+            print('vacuum success.')
+        return 0
 
     try:
         with CVEdb.open(args.database) as db:
@@ -239,5 +236,6 @@ def main(argv: Optional[List[str]] = None) -> int:
                     db.data().search(query, sort=sorts, ascending=not args.descending),
                     force_color=force_ansi
                 )
+        return 0
     except (KeyboardInterrupt, BrokenPipeError):
         return 1
